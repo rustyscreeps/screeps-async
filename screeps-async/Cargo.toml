@@ -1,7 +1,11 @@
 [package]
 name = "screeps-async"
+description = "Tick-aware Async runtime for Screeps"
+repository = "https://github.com/scottbot95/screeps-async"
+homepage = "https://github.com/scottbot95/screeps-async"
 version = "0.1.0"
 edition = "2021"
+license = "MIT"
 
 [dependencies]
 crossbeam = "0.8"

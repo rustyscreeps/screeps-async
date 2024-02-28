@@ -6,8 +6,8 @@
 /// that returns an [`Option`]
 ///
 /// The resolved dependencies will be available within the code block
-/// under the same ident. EG an [`ObjectId<screeps::Creep>`] called `creep`
-/// will be resolved to a [`screeps:Creep`] also called `creep`
+/// under the same ident. EG an [`screeps::ObjectId<screeps::Creep>`] called `creep`
+/// will be resolved to a [`screeps::Creep`] also called `creep`
 ///
 /// The code block must return whether the task is "done" (ie `false`
 /// if it should run again next tick or `true` if the task is done)
