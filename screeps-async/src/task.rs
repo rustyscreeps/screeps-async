@@ -28,7 +28,7 @@ impl Task {
             executor: sender.clone(),
         });
 
-        let _ = sender.send(task);
+        sender.send(task).unwrap();
     }
 
     // Execute a scheduled task. This creates the necessary `task::Context`
@@ -46,7 +46,7 @@ impl Task {
 
 impl ArcWake for Task {
     fn wake_by_ref(arc_self: &Arc<Self>) {
-        let _ = arc_self.executor.send(arc_self.clone());
+        arc_self.executor.send(arc_self.clone()).unwrap();
     }
 }
 

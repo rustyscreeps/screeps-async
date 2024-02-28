@@ -32,6 +32,12 @@ impl Builder {
     }
 }
 
+impl Default for Builder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// Configuration options for the [ScreepsRuntime]
 pub struct Config {
     /// Percentage of per-tick CPU time allowed to be used by the async runtime
@@ -123,13 +129,14 @@ impl ScreepsRuntime {
             }
         }
 
-        // Drain the scheduled tasks queue without blocking
-        while let Ok(task) = self.scheduled.try_recv() {
-            // First check if we have time left this tick
-            if time_used() <= self.config.tick_time_allocation {
+        // Poll for tasks as long as we have time left this tick
+        while time_used() <= self.config.tick_time_allocation {
+            if let Ok(task) = self.scheduled.try_recv() {
+                task.poll();
+            } else {
+                // No more tasks scheduled this tick, quit polling for more
                 break;
             }
-            task.poll();
         }
     }
 }
