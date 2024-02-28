@@ -36,21 +36,19 @@
 //! }
 //! ```
 
-
-mod task;
 pub mod macros;
 pub mod runtime;
+mod task;
 pub mod time;
 
-use std::future::Future;
 use crate::runtime::CURRENT;
 use crate::task::Task;
-
+use std::future::Future;
 
 /// Spawn a new async task
 pub fn spawn<F>(future: F)
 where
-    F: Future<Output = ()> + Send + 'static
+    F: Future<Output = ()> + Send + 'static,
 {
     CURRENT.with_borrow(|runtime| {
         Task::spawn(future, &runtime.as_ref().unwrap().sender);
@@ -78,10 +76,10 @@ mod utils {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+    use crate::runtime::ScreepsRuntime;
     use std::cell::RefCell;
     use std::sync::{Arc, Mutex};
-    use crate::runtime::ScreepsRuntime;
-    use super::*;
 
     #[test]
     fn test_respects_time_remaining() {

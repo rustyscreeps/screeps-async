@@ -1,10 +1,10 @@
 //! Utilities for tracking time
 
+use crate::runtime::CURRENT;
+use crate::utils::game_time;
 use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
-use crate::runtime::CURRENT;
-use crate::utils::game_time;
 
 /// Future returned by [delay]
 pub struct Delay {
@@ -21,10 +21,7 @@ impl Delay {
 
             let timer_index = wakers.len();
             wakers.push(None); // Store an empty waker to ensure len() is incremented for the next delay
-            Delay {
-                when,
-                timer_index
-            }
+            Delay { when, timer_index }
         })
     }
 }
@@ -34,11 +31,12 @@ impl Future for Delay {
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         if game_time() >= self.when {
-            return Poll::Ready(())
+            return Poll::Ready(());
         }
 
         CURRENT.with_borrow_mut(|runtime| {
-            let mut timers = runtime.as_mut()
+            let mut timers = runtime
+                .as_mut()
                 .expect("ScreepsRuntime not configured")
                 .timers
                 .try_lock()
@@ -81,11 +79,11 @@ pub async fn yield_tick() {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::{Arc, Mutex};
-    use rstest::rstest;
     use crate::runtime::ScreepsRuntime;
     use crate::spawn;
     use crate::tests::game_time;
+    use rstest::rstest;
+    use std::sync::{Arc, Mutex};
 
     #[rstest]
     #[case(0, 0)]
@@ -113,7 +111,7 @@ mod tests {
         // Should complete within `dur` ticks (since we have infinite cpu time in this test)
         while game_time() <= dur {
             runtime.run();
-            crate::tests::GAME_TIME.with_borrow_mut(|t| *t = *t + 1);
+            crate::tests::GAME_TIME.with_borrow_mut(|t| *t += 1);
         }
 
         // Future has been run

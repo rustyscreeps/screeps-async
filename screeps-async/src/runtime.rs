@@ -1,14 +1,13 @@
 //! The Screeps Async runtime
 
+use crate::task::Task;
+use crate::utils::{game_time, time_used};
+use crossbeam::channel;
 use std::cell::RefCell;
 use std::collections::btree_map::Entry;
 use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
 use std::task::Waker;
-use crossbeam::channel;
-use crate::task::Task;
-use crate::utils::{game_time, time_used};
-
 
 /// Builder to construct a [ScreepsRuntime]
 pub struct Builder {
@@ -16,7 +15,6 @@ pub struct Builder {
 }
 
 impl Builder {
-
     /// Construct a new [Builder] with default settings
     pub fn new() -> Self {
         Self {
@@ -78,7 +76,7 @@ pub struct ScreepsRuntime {
     timers: Arc<Mutex<TimerMap>>,
 
     /// Config for the runtime
-    config: Config
+    config: Config,
 }
 
 impl ScreepsRuntime {
@@ -95,7 +93,12 @@ impl ScreepsRuntime {
             });
         });
 
-        Self { scheduled, sender, timers, config }
+        Self {
+            scheduled,
+            sender,
+            timers,
+            config,
+        }
     }
 
     /// Run the executor for one game tick
@@ -147,7 +150,7 @@ impl ScreepsRuntime {
 
 pub(crate) struct ThreadLocalRuntime {
     pub(crate) sender: channel::Sender<Arc<Task>>,
-    pub(crate) timers: Arc<Mutex<TimerMap>>
+    pub(crate) timers: Arc<Mutex<TimerMap>>,
 }
 
 type TimerMap = BTreeMap<u32, Vec<Option<Waker>>>;

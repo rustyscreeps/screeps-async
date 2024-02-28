@@ -1,10 +1,10 @@
-use std::future::Future;
-use std::sync::{Arc, Mutex};
-use std::task::Context;
 use crossbeam::channel;
 use futures::future::BoxFuture;
 use futures::task;
 use futures::task::ArcWake;
+use std::future::Future;
+use std::sync::{Arc, Mutex};
+use std::task::Context;
 
 // Task harness. Contains the future as well as the necessary data to schedule
 // the future once it is woken.
@@ -20,8 +20,8 @@ pub(crate) struct Task {
 
 impl Task {
     pub(crate) fn spawn<F>(future: F, sender: &channel::Sender<Arc<Task>>)
-        where
-            F: Future<Output = ()> + Send + 'static,
+    where
+        F: Future<Output = ()> + Send + 'static,
     {
         let task = Arc::new(Task {
             future: Mutex::new(Box::pin(future)),
@@ -53,14 +53,14 @@ impl ArcWake for Task {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_spawn() {
         let future = async {};
-        
+
         spawn_future(future);
     }
-    
+
     #[test]
     fn test_poll() {
         let has_run = Arc::new(Mutex::new(false));
@@ -69,19 +69,19 @@ mod tests {
             let mut has_run = has_run_clone.lock().unwrap();
             *has_run = true;
         });
-        
+
         // task hasn't run yet
         assert!(!*has_run.lock().unwrap());
-        
+
         task.poll();
-        
+
         // Future has been run
         assert!(*has_run.lock().unwrap());
     }
-    
+
     fn spawn_future<F>(future: F) -> Arc<Task>
     where
-        F: Future<Output=()> + Send + 'static
+        F: Future<Output = ()> + Send + 'static,
     {
         let (send, recv) = channel::unbounded();
         Task::spawn(future, &send);
