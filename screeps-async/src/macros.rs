@@ -11,11 +11,15 @@
 /// under the same ident. EG an [`screeps::ObjectId<screeps::Creep>`] called `creep`
 /// will be resolved to a [`screeps::Creep`] also called `creep`
 ///
-/// The code block must return whether the task is "done" (ie `false`
-/// if it should run again next tick or `true` if the task is done)
+/// The code block must return an [`Option`]. If the code block returns [`None`],
+/// then execution will continue next tick. If the code block returns [`Some`],
+/// then looping will cease and `each_tick!` will return whatever the value returned by the code block
 ///
-/// Returns `false` if any dependency ever fails to resolve.
-/// Returns `true` otherwise.
+/// Returns [`Some`] if the inner block ever returned [`Some`]
+///
+/// # Errors
+///
+/// Returns [`None`] if any dependency ever fails to resolve
 ///
 /// # Examples
 ///
@@ -26,7 +30,7 @@
 /// screeps_async_runtime::each_tick!(creep, source, {
 ///     creep.harvest(source);
 ///     false // Do this forever
-/// });
+/// }).await;
 /// ```
 #[macro_export]
 macro_rules! each_tick {
@@ -37,14 +41,14 @@ macro_rules! each_tick {
                     let $dep = $dep.resolve()?;
                 )*
                 let func = || async move $body;
-                if !func().await {
-                    return Some(());
+                if let Some(ret) = func().await {
+                    return Some(ret);
                 }
 
-                ::screeps_async::yield_tick().await;
+                ::screeps_async::time::yield_tick().await;
             }
         };
 
-        inner().await
+        inner()
     }}
 }
