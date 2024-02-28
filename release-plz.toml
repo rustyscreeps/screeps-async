@@ -1,0 +1,6 @@
+[workspace]
+git_release_enable = false # don't create releases for everything
+
+[[package]]
+name = "screeps-async"
+git_release_enable = true # Only make GH release for core crate
