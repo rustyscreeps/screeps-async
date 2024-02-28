@@ -1,3 +1,5 @@
+//! Macros to make common workflows easier
+
 /// Run a block of code each tick, resolving the specified list of
 /// dependencies by calling `.resolve` each tick and exiting if
 /// any dependency can't be resolved.

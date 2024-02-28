@@ -1,8 +1,11 @@
+//! The Screeps Async runtime
+
+use std::cell::RefCell;
 use std::collections::btree_map::Entry;
 use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
+use std::task::Waker;
 use crossbeam::channel;
-use crate::{CURRENT, ThreadLocalRuntime, TimerMap};
 use crate::task::Task;
 use crate::utils::{game_time, time_used};
 
@@ -21,6 +24,7 @@ impl Builder {
         }
     }
 
+    /// Set what percentage of available CPU time the runtime should use per tick
     pub fn tick_time_allocation(mut self, dur: f64) -> Self {
         self.config.tick_time_allocation = dur;
         self
@@ -139,4 +143,18 @@ impl ScreepsRuntime {
             }
         }
     }
+}
+
+pub(crate) struct ThreadLocalRuntime {
+    pub(crate) sender: channel::Sender<Arc<Task>>,
+    pub(crate) timers: Arc<Mutex<TimerMap>>
+}
+
+type TimerMap = BTreeMap<u32, Vec<Option<Waker>>>;
+
+// Used to track the current mini-tokio instance so that the `spawn` function is
+// able to schedule spawned tasks.
+thread_local! {
+    pub(crate) static CURRENT: RefCell<Option<ThreadLocalRuntime>> =
+        const { RefCell::new(None) };
 }
