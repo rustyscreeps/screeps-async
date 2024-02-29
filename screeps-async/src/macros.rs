@@ -23,14 +23,14 @@
 ///
 /// # Examples
 ///
-/// ```ignore
+/// ```
 /// use screeps::*;
-/// let creep: ObjectId<Creep> = todo!("Acquire a creep ID somehow");
-/// let source: ObjectId<Source> = todo!("Acquire a Source ID somehow");
-/// screeps_async_runtime::each_tick!(creep, source, {
-///     creep.harvest(source);
-///     false // Do this forever
-/// }).await;
+/// async fn harvest_forever(creep: ObjectId<Creep>, source: ObjectId<Source>) {
+///     screeps_async::each_tick!(creep, source, {
+///         let _ = creep.harvest(&source);
+///         None::<()> // do this forever
+///     }).await;
+/// }
 /// ```
 #[macro_export]
 macro_rules! each_tick {
