@@ -37,6 +37,7 @@
 //! ```
 
 pub mod macros;
+pub use macros::*;
 pub mod runtime;
 mod task;
 pub mod time;

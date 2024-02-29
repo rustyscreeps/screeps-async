@@ -1,5 +1,6 @@
 [workspace]
 resolver = "2"
 members = [
-    'screeps-async'
+    "screeps-async",
+    "screeps-async-macros"
 ]

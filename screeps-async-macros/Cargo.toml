@@ -1,0 +1,17 @@
+[package]
+name = "screeps-async-macros"
+description = "Macros for screeps-async"
+repository = "https://github.com/scottbot95/screeps-async"
+homepage = "https://github.com/scottbot95/screeps-async"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+proc-macro = true
+
+[dependencies]
+syn = { version = "2.0", features = ["full"] }
+quote = "1.0"
+proc-macro2 = "1.0"
