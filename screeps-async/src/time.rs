@@ -76,6 +76,18 @@ pub async fn yield_tick() {
     delay(1).await
 }
 
+/// Yields execution back to the async runtime, but doesn't necessarily wait until next tick
+/// to continue execution.
+///
+/// Long-running tasks that perform a significant amount of synchronous work between `.await`s
+/// can prevent other tasks from being executed. In the worst case, too much synchronous work in a row
+/// can consume all remaining CPU time this tick since the scheduler cannot interrupt work in the middle
+/// of synchronous sections of code. To alleviate this problem, [yield_now] should be called periodically
+/// to yield control back to the scheduler and give other tasks a chance to run.
+pub async fn yield_now() {
+    delay(0).await
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
