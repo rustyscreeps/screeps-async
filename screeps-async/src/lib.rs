@@ -9,7 +9,19 @@
 //! screeps-async = "0.1.0"
 //! ```
 //!
-//! Create the runtime and ensure you call it once each tick:
+//! # The [#[screeps_async::main]][screeps_async::main] macro
+//! ```
+//! #[screeps_async::main]
+//! pub fn game_loop() {
+//!     // Tick logic that spawns some tasks
+//!     screeps_async::spawn(async {
+//!         println!("Hello!");
+//!     });
+//! }
+//! ```
+//!
+//! This expands to roughly the following:
+//!
 //! ```
 //! use std::cell::RefCell;
 //! use screeps_async::runtime::ScreepsRuntime;
@@ -25,11 +37,6 @@
 //!         println!("Hello!");
 //!     });
 //!
-//!     // Should generally be the last thing in your loop as by default
-//!     // the runtime will keep polling for work until 90% of this tick's
-//!     // CPU time has been exhausted. Thus, with enough scheduled work,
-//!     // this function will run for AT LEAST 90% of the tick time
-//!     // (90% + however long the last Future takes to poll)
 //!     RUNTIME.with_borrow_mut(|runtime| {
 //!         runtime.run()
 //!     });
