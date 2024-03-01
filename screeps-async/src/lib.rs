@@ -23,54 +23,87 @@
 //! This expands to roughly the following:
 //!
 //! ```
-//! use std::cell::RefCell;
-//! use std::rc::Rc;
-//! use screeps_async::runtime::ScreepsRuntime;
-//! // Use thread local just as a convenient way to avoid Send/Sync requirements as Screeps is single-threaded
-//! // You may store the runtime however you like as long as it persists across ticks
-//! thread_local! {
-//!     static RUNTIME: RefCell<ScreepsRuntime> = RefCell::new(screeps_async::runtime::Builder::new().build());
-//! }
-//!
 //! pub fn game_loop() {
 //!     // Tick logic that spawns some tasks
 //!     screeps_async::spawn(async {
 //!         println!("Hello!");
 //!     });
 //!
-//!     RUNTIME.with_borrow_mut(|runtime| {
-//!         runtime.run()
-//!     });
+//!     screeps_async::run();
 //! }
 //! ```
 
 pub mod macros;
+
 pub use macros::*;
+use std::cell::RefCell;
 pub mod runtime;
 // mod task;
 pub mod time;
 
-use crate::runtime::CURRENT;
+use crate::runtime::{Builder, ScreepsRuntime};
 use std::future::Future;
 
+thread_local! {
+    /// The current runtime
+    pub static CURRENT: RefCell<Option<ScreepsRuntime>> =
+        const { RefCell::new(None) };
+}
+
+/// Configures the runtime with default settings. Must be called only once
+///
+/// To use custom settings, create a [Builder] with [Builder::new], customize as needed,
+/// then call [Builder::apply]
+///
+/// # Panics
+///
+/// This function panics if there is already a runtime initialized
+pub fn initialize() {
+    Builder::new().apply()
+}
+
+/// Run the task executor for one tick
+///
+/// This is just shorthand for:
+/// ```no_run
+/// screeps_async::with_runtime(|runtime| {
+///     runtime.run()
+/// })
+/// ```
+///
+/// # Panics
+///
+/// This function panics if the current runtime is not set
+pub fn run() {
+    with_runtime(|runtime| runtime.run())
+}
+
 /// Spawn a new async task
+///
+/// # Panics
+///
+/// This function panics if the current runtime is not set
 pub fn spawn<F>(future: F)
 where
     F: Future<Output = ()> + 'static,
 {
+    with_runtime(|runtime| runtime.spawn(future))
+}
+
+/// Acquire a reference to the [ScreepsRuntime].
+///
+/// # Panics
+///
+/// This function panics if the current runtime is not set
+pub fn with_runtime<F, R>(f: F) -> R
+where
+    F: FnOnce(&ScreepsRuntime) -> R,
+{
     CURRENT.with_borrow(|runtime| {
-        let sender = runtime
+        let runtime = runtime
             .as_ref()
-            .expect("No ScreepsRuntime configured")
-            .sender
-            .clone();
-
-        let (runnable, task) = async_task::spawn_local(future, move |runnable| {
-            sender.send(runnable).unwrap();
-        });
-
-        task.detach(); // TODO surface this to the user somehow instead of just detaching
-        runnable.schedule();
+            .expect("No screeps_async runtime configured");
+        f(runtime)
     })
 }
 
@@ -95,7 +128,7 @@ mod utils {
 
 #[cfg(test)]
 mod tests {
-    use crate::runtime::{Builder, ScreepsRuntime};
+    use crate::runtime::Builder;
     use std::cell::RefCell;
 
     thread_local! {
@@ -111,10 +144,10 @@ mod tests {
         TIME_USED.with_borrow(|t| *t)
     }
 
-    pub(crate) fn init_test() -> ScreepsRuntime {
+    pub(crate) fn init_test() {
         GAME_TIME.with_borrow_mut(|t| *t = 0);
         TIME_USED.with_borrow_mut(|t| *t = 0.0);
 
-        Builder::new().build()
+        Builder::new().apply()
     }
 }

@@ -1,7 +1,7 @@
 //! Utilities for tracking time
 
-use crate::runtime::CURRENT;
 use crate::utils::game_time;
+use crate::with_runtime;
 use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
@@ -14,8 +14,7 @@ pub struct Delay {
 
 impl Delay {
     fn new(when: u32) -> Self {
-        CURRENT.with_borrow_mut(|runtime| {
-            let runtime = runtime.as_ref().unwrap();
+        with_runtime(|runtime| {
             let mut timer_map = runtime.timers.try_lock().unwrap();
             let wakers = timer_map.entry(when).or_default();
 
@@ -34,13 +33,8 @@ impl Future for Delay {
             return Poll::Ready(());
         }
 
-        CURRENT.with_borrow_mut(|runtime| {
-            let mut timers = runtime
-                .as_mut()
-                .expect("ScreepsRuntime not configured")
-                .timers
-                .try_lock()
-                .unwrap(); // attempting to lock twice will cause deadlock since screeps is single-threaded. Panic instead
+        with_runtime(|runtime| {
+            let mut timers = runtime.timers.try_lock().unwrap();
 
             // SAFETY: timers map gets populated before future is created and removed on final wake
             let wakers = timers.get_mut(&self.when).unwrap();
@@ -91,7 +85,6 @@ pub async fn yield_now() {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::runtime::ScreepsRuntime;
     use crate::spawn;
     use crate::tests::game_time;
     use rstest::rstest;
@@ -105,8 +98,6 @@ mod tests {
         crate::tests::init_test();
         let has_run = Arc::new(Mutex::new(false));
         let has_run_clone = has_run.clone();
-
-        let mut runtime = ScreepsRuntime::new(Default::default());
 
         spawn(async move {
             assert_eq!(0, game_time());
@@ -122,7 +113,7 @@ mod tests {
 
         // Should complete within `dur` ticks (since we have infinite cpu time in this test)
         while game_time() <= dur {
-            runtime.run();
+            crate::run();
             crate::tests::GAME_TIME.with_borrow_mut(|t| *t += 1);
         }
 

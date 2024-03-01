@@ -1,10 +1,11 @@
 //! The Screeps Async runtime
 
 use crate::utils::{game_time, time_used};
+use crate::CURRENT;
 use async_task::Runnable;
-use std::cell::RefCell;
 use std::collections::btree_map::Entry;
 use std::collections::BTreeMap;
+use std::future::Future;
 use std::rc::Rc;
 use std::sync::Mutex;
 use std::task::Waker;
@@ -29,8 +30,10 @@ impl Builder {
     }
 
     /// Build a [ScreepsRuntime]
-    pub fn build(self) -> ScreepsRuntime {
-        ScreepsRuntime::new(self.config)
+    pub fn apply(self) {
+        CURRENT.with_borrow_mut(|runtime| {
+            *runtime = Some(ScreepsRuntime::new(self.config));
+        })
     }
 }
 
@@ -69,8 +72,12 @@ pub struct ScreepsRuntime {
     /// uses becomes ready to perform an operation.
     scheduled: flume::Receiver<Runnable>,
 
+    /// Send half of the scheduled channel.
+    sender: flume::Sender<Runnable>,
+
     /// Stores [`Waker`]s used to wake tasks that are waiting for a specific game tick
-    timers: Rc<Mutex<TimerMap>>,
+    // TODO should this really be pub(crate)?
+    pub(crate) timers: Rc<Mutex<TimerMap>>,
 
     /// Config for the runtime
     config: Config,
@@ -81,28 +88,32 @@ impl ScreepsRuntime {
     ///
     /// Only one ScreepsRuntime may exist. Attempting to create a second one before the first is
     /// dropped with panic
-    pub fn new(config: Config) -> Self {
+    pub(crate) fn new(config: Config) -> Self {
         let (sender, scheduled) = flume::unbounded();
 
         let timers = Rc::new(Mutex::new(BTreeMap::new()));
 
-        CURRENT.with_borrow_mut(|current| match current {
-            None => {
-                *current = Some(ThreadLocalRuntime {
-                    sender,
-                    timers: timers.clone(),
-                })
-            }
-            Some(_) => {
-                panic!("Only one ScreepsRuntime can be created at a time");
-            }
-        });
-
         Self {
             scheduled,
+            sender,
             timers,
             config,
         }
+    }
+
+    /// Spawn a new async task
+    pub fn spawn<F>(&self, future: F)
+    where
+        F: Future<Output = ()> + 'static,
+    {
+        let sender = self.sender.clone();
+
+        let (runnable, task) = async_task::spawn_local(future, move |runnable| {
+            sender.send(runnable).unwrap();
+        });
+
+        task.detach(); // TODO surface this to the user somehow instead of just detaching
+        runnable.schedule();
     }
 
     /// Run the executor for one game tick
@@ -111,7 +122,7 @@ impl ScreepsRuntime {
     /// will keep polling for work until 90% of this tick's CPU time has been exhausted.
     /// Thus, with enough scheduled work, this function will run for AT LEAST 90% of the tick time
     /// (90% + however long the last Future takes to poll)
-    pub fn run(&mut self) {
+    pub fn run(&self) {
         {
             let game_time = game_time();
             let mut timers = self.timers.try_lock().unwrap();
@@ -145,49 +156,31 @@ impl ScreepsRuntime {
     }
 }
 
-impl Drop for ScreepsRuntime {
-    fn drop(&mut self) {
-        CURRENT.with_borrow_mut(|current| {
-            *current = None;
-        });
-    }
-}
-
 type TimerMap = BTreeMap<u32, Vec<Option<Waker>>>;
-
-pub(crate) struct ThreadLocalRuntime {
-    pub(crate) sender: flume::Sender<Runnable>,
-    pub(crate) timers: Rc<Mutex<TimerMap>>,
-}
-
-// Used to track the current mini-tokio instance so that the `spawn` function is
-// able to schedule spawned tasks.
-thread_local! {
-    pub(crate) static CURRENT: RefCell<Option<ThreadLocalRuntime>> =
-        const { RefCell::new(None) };
-}
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::spawn;
     use crate::tests::*;
+    use crate::{spawn, with_runtime};
 
     #[test]
     fn test_spawn() {
-        let runtime = init_test();
+        init_test();
 
         spawn(async move {});
 
-        runtime
-            .scheduled
-            .try_recv()
-            .expect("Failed to schedule task");
+        with_runtime(|runtime| {
+            runtime
+                .scheduled
+                .try_recv()
+                .expect("Failed to schedule task");
+        })
     }
 
     #[test]
     fn test_run() {
-        let mut runtime = init_test();
+        init_test();
 
         let has_run = Rc::new(Mutex::new(false));
         let has_run_clone = has_run.clone();
@@ -199,7 +192,7 @@ mod tests {
         // task hasn't run yet
         assert!(!*has_run.lock().unwrap());
 
-        runtime.run();
+        crate::run();
 
         // Future has been run
         assert!(*has_run.lock().unwrap());
@@ -207,7 +200,7 @@ mod tests {
 
     #[test]
     fn test_respects_time_remaining() {
-        let mut runtime = init_test();
+        init_test();
 
         let has_run = Rc::new(Mutex::new(false));
         let has_run_clone = has_run.clone();
@@ -222,7 +215,7 @@ mod tests {
         // task hasn't run yet
         assert!(!*has_run.lock().unwrap());
 
-        runtime.run();
+        crate::run();
 
         // Check future still hasn't run
         assert!(!*has_run.lock().unwrap());
