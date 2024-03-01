@@ -1,12 +1,12 @@
 //! The Screeps Async runtime
 
-use crate::task::Task;
 use crate::utils::{game_time, time_used};
-use crossbeam::channel;
+use async_task::Runnable;
 use std::cell::RefCell;
 use std::collections::btree_map::Entry;
 use std::collections::BTreeMap;
-use std::sync::{Arc, Mutex};
+use std::rc::Rc;
+use std::sync::Mutex;
 use std::task::Waker;
 
 /// Builder to construct a [ScreepsRuntime]
@@ -67,35 +67,39 @@ pub struct ScreepsRuntime {
     /// Receives scheduled tasks. When a task is scheduled, the associated future
     /// is ready to make progress. This usually happens when a resource the task
     /// uses becomes ready to perform an operation.
-    scheduled: channel::Receiver<Arc<Task>>,
-
-    /// Send half of the scheduled channel.
-    sender: channel::Sender<Arc<Task>>,
+    scheduled: flume::Receiver<Runnable>,
 
     /// Stores [`Waker`]s used to wake tasks that are waiting for a specific game tick
-    timers: Arc<Mutex<TimerMap>>,
+    timers: Rc<Mutex<TimerMap>>,
 
     /// Config for the runtime
     config: Config,
 }
 
 impl ScreepsRuntime {
-    /// Initialize a new runtime instance
+    /// Initialize a new runtime instance.
+    ///
+    /// Only one ScreepsRuntime may exist. Attempting to create a second one before the first is
+    /// dropped with panic
     pub fn new(config: Config) -> Self {
-        let (sender, scheduled) = channel::unbounded();
+        let (sender, scheduled) = flume::unbounded();
 
-        let timers = Arc::new(Mutex::new(BTreeMap::new()));
+        let timers = Rc::new(Mutex::new(BTreeMap::new()));
 
-        CURRENT.with_borrow_mut(|runtime| {
-            *runtime = Some(ThreadLocalRuntime {
-                sender: sender.clone(),
-                timers: timers.clone(),
-            });
+        CURRENT.with_borrow_mut(|current| match current {
+            None => {
+                *current = Some(ThreadLocalRuntime {
+                    sender,
+                    timers: timers.clone(),
+                })
+            }
+            Some(_) => {
+                panic!("Only one ScreepsRuntime can be created at a time");
+            }
         });
 
         Self {
             scheduled,
-            sender,
             timers,
             config,
         }
@@ -108,13 +112,6 @@ impl ScreepsRuntime {
     /// Thus, with enough scheduled work, this function will run for AT LEAST 90% of the tick time
     /// (90% + however long the last Future takes to poll)
     pub fn run(&mut self) {
-        CURRENT.with_borrow_mut(|sender| {
-            *sender = Some(ThreadLocalRuntime {
-                sender: self.sender.clone(),
-                timers: self.timers.clone(),
-            });
-        });
-
         {
             let game_time = game_time();
             let mut timers = self.timers.try_lock().unwrap();
@@ -138,8 +135,8 @@ impl ScreepsRuntime {
 
         // Poll for tasks as long as we have time left this tick
         while time_used() <= self.config.tick_time_allocation {
-            if let Ok(task) = self.scheduled.try_recv() {
-                task.poll();
+            if let Ok(runnable) = self.scheduled.try_recv() {
+                runnable.run();
             } else {
                 // No more tasks scheduled this tick, quit polling for more
                 break;
@@ -148,16 +145,86 @@ impl ScreepsRuntime {
     }
 }
 
-pub(crate) struct ThreadLocalRuntime {
-    pub(crate) sender: channel::Sender<Arc<Task>>,
-    pub(crate) timers: Arc<Mutex<TimerMap>>,
+impl Drop for ScreepsRuntime {
+    fn drop(&mut self) {
+        CURRENT.with_borrow_mut(|current| {
+            *current = None;
+        });
+    }
 }
 
 type TimerMap = BTreeMap<u32, Vec<Option<Waker>>>;
+
+pub(crate) struct ThreadLocalRuntime {
+    pub(crate) sender: flume::Sender<Runnable>,
+    pub(crate) timers: Rc<Mutex<TimerMap>>,
+}
 
 // Used to track the current mini-tokio instance so that the `spawn` function is
 // able to schedule spawned tasks.
 thread_local! {
     pub(crate) static CURRENT: RefCell<Option<ThreadLocalRuntime>> =
         const { RefCell::new(None) };
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::spawn;
+    use crate::tests::*;
+
+    #[test]
+    fn test_spawn() {
+        let runtime = init_test();
+
+        spawn(async move {});
+
+        runtime
+            .scheduled
+            .try_recv()
+            .expect("Failed to schedule task");
+    }
+
+    #[test]
+    fn test_run() {
+        let mut runtime = init_test();
+
+        let has_run = Rc::new(Mutex::new(false));
+        let has_run_clone = has_run.clone();
+        spawn(async move {
+            let mut has_run = has_run_clone.lock().unwrap();
+            *has_run = true;
+        });
+
+        // task hasn't run yet
+        assert!(!*has_run.lock().unwrap());
+
+        runtime.run();
+
+        // Future has been run
+        assert!(*has_run.lock().unwrap());
+    }
+
+    #[test]
+    fn test_respects_time_remaining() {
+        let mut runtime = init_test();
+
+        let has_run = Rc::new(Mutex::new(false));
+        let has_run_clone = has_run.clone();
+
+        TIME_USED.with_borrow_mut(|t| *t = 0.95);
+
+        spawn(async move {
+            let mut has_run = has_run_clone.lock().unwrap();
+            *has_run = true;
+        });
+
+        // task hasn't run yet
+        assert!(!*has_run.lock().unwrap());
+
+        runtime.run();
+
+        // Check future still hasn't run
+        assert!(!*has_run.lock().unwrap());
+    }
 }

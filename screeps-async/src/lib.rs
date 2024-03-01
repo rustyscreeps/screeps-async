@@ -24,6 +24,7 @@
 //!
 //! ```
 //! use std::cell::RefCell;
+//! use std::rc::Rc;
 //! use screeps_async::runtime::ScreepsRuntime;
 //! // Use thread local just as a convenient way to avoid Send/Sync requirements as Screeps is single-threaded
 //! // You may store the runtime however you like as long as it persists across ticks
@@ -46,20 +47,30 @@
 pub mod macros;
 pub use macros::*;
 pub mod runtime;
-mod task;
+// mod task;
 pub mod time;
 
 use crate::runtime::CURRENT;
-use crate::task::Task;
 use std::future::Future;
 
 /// Spawn a new async task
 pub fn spawn<F>(future: F)
 where
-    F: Future<Output = ()> + Send + 'static,
+    F: Future<Output = ()> + 'static,
 {
     CURRENT.with_borrow(|runtime| {
-        Task::spawn(future, &runtime.as_ref().unwrap().sender);
+        let sender = runtime
+            .as_ref()
+            .expect("No ScreepsRuntime configured")
+            .sender
+            .clone();
+
+        let (runnable, task) = async_task::spawn_local(future, move |runnable| {
+            sender.send(runnable).unwrap();
+        });
+
+        task.detach(); // TODO surface this to the user somehow instead of just detaching
+        runnable.schedule();
     })
 }
 
@@ -84,33 +95,8 @@ mod utils {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::runtime::ScreepsRuntime;
+    use crate::runtime::{Builder, ScreepsRuntime};
     use std::cell::RefCell;
-    use std::sync::{Arc, Mutex};
-
-    #[test]
-    fn test_respects_time_remaining() {
-        init_test();
-        let has_run = Arc::new(Mutex::new(false));
-        let has_run_clone = has_run.clone();
-
-        let mut runtime = ScreepsRuntime::new(Default::default());
-        TIME_USED.with_borrow_mut(|t| *t = 0.95);
-
-        spawn(async move {
-            let mut has_run = has_run_clone.lock().unwrap();
-            *has_run = true;
-        });
-
-        // task hasn't run yet
-        assert!(!*has_run.lock().unwrap());
-
-        runtime.run();
-
-        // Check future still hasn't run
-        assert!(!*has_run.lock().unwrap());
-    }
 
     thread_local! {
         pub(crate) static GAME_TIME: RefCell<u32> = RefCell::new(0);
@@ -125,8 +111,10 @@ mod tests {
         TIME_USED.with_borrow(|t| *t)
     }
 
-    pub(crate) fn init_test() {
+    pub(crate) fn init_test() -> ScreepsRuntime {
         GAME_TIME.with_borrow_mut(|t| *t = 0);
         TIME_USED.with_borrow_mut(|t| *t = 0.0);
+
+        Builder::new().build()
     }
 }

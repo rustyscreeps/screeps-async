@@ -84,7 +84,8 @@ fn sync_main(input: ItemFn) -> TokenStream {
 
     quote! {
         ::std::thread_local! {
-            static __SCREEPS_ASYNC_RUNTIME: ::std::cell::RefCell<::screeps_async::runtime::ScreepsRuntime> = ::std::cell::RefCell::new(::screeps_async::runtime::Builder::new().build());
+            static __SCREEPS_ASYNC_RUNTIME: ::std::cell::RefCell<::screeps_async::runtime::ScreepsRuntime> =
+                ::std::cell::RefCell::new(::screeps_async::runtime::Builder::new().build());
         }
 
         #(#attrs)*

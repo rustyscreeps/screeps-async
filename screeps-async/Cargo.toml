@@ -10,10 +10,10 @@ license = "MIT"
 [dependencies]
 screeps-async-macros = { path = "../screeps-async-macros" }
 
-crossbeam = "0.8"
-futures = "0.3"
-screeps-game-api = "0.20.1"
+async-task = "4.7"
+flume = { version = "0.11", default-features = false }
 
+screeps-game-api = "0.20.1"
 
 [dev-dependencies]
 rstest = "0.18.2"
