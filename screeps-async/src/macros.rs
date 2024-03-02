@@ -36,21 +36,19 @@ pub use screeps_async_macros::*;
 /// ```
 #[macro_export]
 macro_rules! each_tick {
-    ($($dep:ident),*, $body:block) => {{
-        let inner = || async move {
+    ($($dep:ident),*, $body:block) => {
+        async move {
             loop {
                 $(
                     let $dep = $dep.resolve()?;
                 )*
-                let func = || async move $body;
-                if let Some(ret) = func().await {
+                let fut = async move $body;
+                if let Some(ret) = fut.await {
                     return Some(ret);
                 }
 
                 ::screeps_async::time::yield_tick().await;
             }
-        };
-
-        inner()
-    }}
+        }
+    }
 }
