@@ -88,7 +88,8 @@ mod tests {
     use crate::spawn;
     use crate::tests::game_time;
     use rstest::rstest;
-    use std::sync::{Arc, Mutex};
+    use std::cell::OnceCell;
+    use std::rc::Rc;
 
     #[rstest]
     #[case(0, 0)]
@@ -96,20 +97,22 @@ mod tests {
     #[case(4, 4)]
     fn test_delay_ticks(#[case] dur: u32, #[case] expected: u32) {
         crate::tests::init_test();
-        let has_run = Arc::new(Mutex::new(false));
-        let has_run_clone = has_run.clone();
 
-        spawn(async move {
-            assert_eq!(0, game_time());
-            delay_ticks(dur).await;
-            assert_eq!(expected, game_time());
+        let has_run = Rc::new(OnceCell::new());
+        {
+            let has_run = has_run.clone();
 
-            let mut has_run = has_run_clone.lock().unwrap();
-            *has_run = true;
-        });
+            spawn(async move {
+                assert_eq!(0, game_time());
+                delay_ticks(dur).await;
+                assert_eq!(expected, game_time());
+
+                has_run.set(()).unwrap();
+            });
+        }
 
         // task hasn't run yet
-        assert!(!*has_run.lock().unwrap());
+        assert!(has_run.get().is_none());
 
         // Should complete within `dur` ticks (since we have infinite cpu time in this test)
         while game_time() <= dur {
@@ -118,6 +121,6 @@ mod tests {
         }
 
         // Future has been run
-        assert!(*has_run.lock().unwrap(), "Future failed to complete");
+        assert!(has_run.get().is_some(), "Future failed to complete");
     }
 }

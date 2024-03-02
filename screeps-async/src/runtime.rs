@@ -1,9 +1,11 @@
 //! The Screeps Async runtime
 
 use crate::error::RuntimeError;
+use crate::job::JobHandle;
 use crate::utils::{game_time, time_used};
 use crate::CURRENT;
 use async_task::Runnable;
+use std::cell::RefCell;
 use std::collections::btree_map::Entry;
 use std::collections::BTreeMap;
 use std::future::Future;
@@ -102,19 +104,31 @@ impl ScreepsRuntime {
         }
     }
 
-    /// Spawn a new async task
-    pub fn spawn<F>(&self, future: F)
+    /// Spawn a new async task that will be polled next time the scheduler runs
+    pub fn spawn<F>(&self, future: F) -> JobHandle<F::Output>
     where
-        F: Future<Output = ()> + 'static,
+        F: Future + 'static,
     {
-        let sender = self.sender.clone();
+        let fut_res = Rc::new(RefCell::new(None));
 
+        let future = {
+            let fut_res = fut_res.clone();
+            async move {
+                let res = future.await;
+                let mut fut_res = fut_res.borrow_mut();
+                *fut_res = Some(res);
+            }
+        };
+
+        let sender = self.sender.clone();
         let (runnable, task) = async_task::spawn_local(future, move |runnable| {
             sender.send(runnable).unwrap();
         });
 
-        task.detach(); // TODO surface this to the user somehow instead of just detaching
+        task.detach(); // Ensure this task can run in the background
         runnable.schedule();
+
+        JobHandle::new(fut_res)
     }
 
     /// Run the executor for one game tick
@@ -168,6 +182,7 @@ mod tests {
     use crate::error::RuntimeError::OutOfTime;
     use crate::tests::*;
     use crate::{spawn, with_runtime};
+    use std::cell::OnceCell;
 
     #[test]
     fn test_spawn() {
@@ -187,42 +202,56 @@ mod tests {
     fn test_run() {
         init_test();
 
-        let has_run = Rc::new(Mutex::new(false));
-        let has_run_clone = has_run.clone();
-        spawn(async move {
-            let mut has_run = has_run_clone.lock().unwrap();
-            *has_run = true;
-        });
+        let has_run = Rc::new(OnceCell::new());
+        {
+            let has_run = has_run.clone();
+            spawn(async move {
+                has_run.set(()).unwrap();
+            });
+        }
 
         // task hasn't run yet
-        assert!(!*has_run.lock().unwrap());
+        assert!(has_run.get().is_none());
 
         crate::run().unwrap();
 
         // Future has been run
-        assert!(*has_run.lock().unwrap());
+        assert!(has_run.get().is_some());
+    }
+
+    #[test]
+    fn test_nested_spawn() {
+        init_test();
+
+        spawn(async move {
+            let result = spawn(async move { 1 + 2 }).await;
+
+            assert_eq!(3, result);
+        });
+
+        crate::run().unwrap();
     }
 
     #[test]
     fn test_respects_time_remaining() {
         init_test();
 
-        let has_run = Rc::new(Mutex::new(false));
-        let has_run_clone = has_run.clone();
+        let has_run = Rc::new(OnceCell::new());
+        {
+            let has_run = has_run.clone();
+            spawn(async move {
+                has_run.set(()).unwrap();
+            });
+        }
 
         TIME_USED.with_borrow_mut(|t| *t = 0.95);
 
-        spawn(async move {
-            let mut has_run = has_run_clone.lock().unwrap();
-            *has_run = true;
-        });
-
         // task hasn't run yet
-        assert!(!*has_run.lock().unwrap());
+        assert!(has_run.get().is_none());
 
         assert_eq!(Err(OutOfTime), crate::run());
 
         // Check future still hasn't run
-        assert!(!*has_run.lock().unwrap());
+        assert!(has_run.get().is_none());
     }
 }

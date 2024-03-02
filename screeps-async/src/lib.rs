@@ -38,10 +38,12 @@ pub mod macros;
 pub use macros::*;
 use std::cell::RefCell;
 pub mod error;
+pub mod job;
 pub mod runtime;
 pub mod time;
 
 use crate::error::RuntimeError;
+use crate::job::JobHandle;
 use crate::runtime::{Builder, ScreepsRuntime};
 use std::future::Future;
 
@@ -85,9 +87,9 @@ pub fn run() -> Result<(), RuntimeError> {
 /// # Panics
 ///
 /// This function panics if the current runtime is not set
-pub fn spawn<F>(future: F)
+pub fn spawn<F>(future: F) -> JobHandle<F::Output>
 where
-    F: Future<Output = ()> + 'static,
+    F: Future + 'static,
 {
     with_runtime(|runtime| runtime.spawn(future))
 }
