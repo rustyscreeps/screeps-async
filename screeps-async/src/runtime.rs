@@ -1,5 +1,6 @@
 //! The Screeps Async runtime
 
+use crate::error::RuntimeError;
 use crate::utils::{game_time, time_used};
 use crate::CURRENT;
 use async_task::Runnable;
@@ -122,7 +123,7 @@ impl ScreepsRuntime {
     /// will keep polling for work until 90% of this tick's CPU time has been exhausted.
     /// Thus, with enough scheduled work, this function will run for AT LEAST 90% of the tick time
     /// (90% + however long the last Future takes to poll)
-    pub fn run(&self) {
+    pub fn run(&self) -> Result<(), RuntimeError> {
         {
             let game_time = game_time();
             let mut timers = self.timers.try_lock().unwrap();
@@ -150,9 +151,12 @@ impl ScreepsRuntime {
                 runnable.run();
             } else {
                 // No more tasks scheduled this tick, quit polling for more
-                break;
+                return Ok(());
             }
         }
+
+        // we ran out of time :(
+        Err(RuntimeError::OutOfTime)
     }
 }
 
@@ -161,6 +165,7 @@ type TimerMap = BTreeMap<u32, Vec<Option<Waker>>>;
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::error::RuntimeError::OutOfTime;
     use crate::tests::*;
     use crate::{spawn, with_runtime};
 
@@ -168,7 +173,7 @@ mod tests {
     fn test_spawn() {
         init_test();
 
-        spawn(async move {});
+        let _ = spawn(async move {});
 
         with_runtime(|runtime| {
             runtime
@@ -192,7 +197,7 @@ mod tests {
         // task hasn't run yet
         assert!(!*has_run.lock().unwrap());
 
-        crate::run();
+        crate::run().unwrap();
 
         // Future has been run
         assert!(*has_run.lock().unwrap());
@@ -215,7 +220,7 @@ mod tests {
         // task hasn't run yet
         assert!(!*has_run.lock().unwrap());
 
-        crate::run();
+        assert_eq!(Err(OutOfTime), crate::run());
 
         // Check future still hasn't run
         assert!(!*has_run.lock().unwrap());

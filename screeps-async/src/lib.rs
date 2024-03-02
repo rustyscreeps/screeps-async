@@ -37,10 +37,11 @@ pub mod macros;
 
 pub use macros::*;
 use std::cell::RefCell;
+pub mod error;
 pub mod runtime;
-// mod task;
 pub mod time;
 
+use crate::error::RuntimeError;
 use crate::runtime::{Builder, ScreepsRuntime};
 use std::future::Future;
 
@@ -66,15 +67,16 @@ pub fn initialize() {
 ///
 /// This is just shorthand for:
 /// ```no_run
+/// # let _ = // avoid warnings from not capturing returned value
 /// screeps_async::with_runtime(|runtime| {
 ///     runtime.run()
-/// })
+/// });
 /// ```
 ///
 /// # Panics
 ///
 /// This function panics if the current runtime is not set
-pub fn run() {
+pub fn run() -> Result<(), RuntimeError> {
     with_runtime(|runtime| runtime.run())
 }
 
