@@ -41,9 +41,7 @@ impl Future for Delay {
 
             if let Some(waker) = wakers.get_mut(self.timer_index).and_then(Option::as_mut) {
                 // Waker already registered, check if it needs updating
-                if !waker.will_wake(cx.waker()) {
-                    *waker = cx.waker().clone();
-                }
+                waker.clone_from(cx.waker());
             } else {
                 // First time this future was polled, save the waker
                 wakers[self.timer_index] = Some(cx.waker().clone())
@@ -54,13 +52,19 @@ impl Future for Delay {
     }
 }
 
-/// Sleeps for `[dur]` game ticks.
+/// Sleeps for `dur` game ticks.
+///
+/// If `dur` is zero, this function completes immediately and does not yield to the scheduler.
+/// If you wish to yield execution back to the scheduler, please use [yield_now] instead
 pub fn delay_ticks(dur: u32) -> Delay {
     let when = game_time() + dur;
     Delay::new(when)
 }
 
 /// Sleep until [screeps::game::time()] >= `when`
+///
+/// The Future returned by this function completes immediately if [screeps::game::time()] is already
+/// >= `when` and does not yield to the scheduler.
 pub fn delay_until(when: u32) -> Delay {
     Delay::new(when)
 }
@@ -79,7 +83,25 @@ pub async fn yield_tick() {
 /// of synchronous sections of code. To alleviate this problem, [yield_now] should be called periodically
 /// to yield control back to the scheduler and give other tasks a chance to run.
 pub async fn yield_now() {
-    delay_ticks(0).await
+    struct YieldNow {
+        yielded: bool,
+    }
+
+    impl Future for YieldNow {
+        type Output = ();
+
+        fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+            if self.yielded {
+                Poll::Ready(())
+            } else {
+                self.yielded = true;
+                cx.waker().wake_by_ref();
+                Poll::Pending
+            }
+        }
+    }
+
+    YieldNow { yielded: false }.await;
 }
 
 #[cfg(test)]
@@ -88,7 +110,7 @@ mod tests {
     use crate::spawn;
     use crate::tests::game_time;
     use rstest::rstest;
-    use std::cell::OnceCell;
+    use std::cell::{OnceCell, RefCell};
     use std::rc::Rc;
 
     #[rstest]
@@ -122,5 +144,37 @@ mod tests {
 
         // Future has been run
         assert!(has_run.get().is_some(), "Future failed to complete");
+    }
+
+    #[test]
+    fn test_yield_now() {
+        crate::tests::init_test();
+
+        let steps = Rc::new(RefCell::new(Vec::new()));
+        {
+            let steps = steps.clone();
+            spawn(async move {
+                {
+                    steps.borrow_mut().push(1);
+                }
+                yield_now().await;
+                {
+                    // should run after second spawn if yield_now works correctly
+                    steps.borrow_mut().push(3);
+                }
+            });
+        }
+        {
+            let steps = steps.clone();
+            spawn(async move {
+                steps.borrow_mut().push(2);
+            });
+        }
+
+        crate::run().unwrap();
+
+        let steps = steps.take();
+
+        assert_eq!(vec![1, 2, 3], steps);
     }
 }
