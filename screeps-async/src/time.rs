@@ -6,7 +6,7 @@ use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-/// Future returned by [delay]
+/// Future returned by [delay_ticks]
 pub struct Delay {
     when: u32,
     timer_index: usize,
@@ -55,7 +55,7 @@ impl Future for Delay {
 }
 
 /// Sleeps for `[dur]` game ticks.
-pub fn delay(dur: u32) -> Delay {
+pub fn delay_ticks(dur: u32) -> Delay {
     let when = game_time() + dur;
     Delay::new(when)
 }
@@ -67,7 +67,7 @@ pub fn delay_until(when: u32) -> Delay {
 
 /// Delay execution until the next tick
 pub async fn yield_tick() {
-    delay(1).await
+    delay_ticks(1).await
 }
 
 /// Yields execution back to the async runtime, but doesn't necessarily wait until next tick
@@ -79,7 +79,7 @@ pub async fn yield_tick() {
 /// of synchronous sections of code. To alleviate this problem, [yield_now] should be called periodically
 /// to yield control back to the scheduler and give other tasks a chance to run.
 pub async fn yield_now() {
-    delay(0).await
+    delay_ticks(0).await
 }
 
 #[cfg(test)]
@@ -94,14 +94,14 @@ mod tests {
     #[case(0, 0)]
     #[case(1, 1)]
     #[case(4, 4)]
-    fn test_delay(#[case] dur: u32, #[case] expected: u32) {
+    fn test_delay_ticks(#[case] dur: u32, #[case] expected: u32) {
         crate::tests::init_test();
         let has_run = Arc::new(Mutex::new(false));
         let has_run_clone = has_run.clone();
 
         spawn(async move {
             assert_eq!(0, game_time());
-            delay(dur).await;
+            delay_ticks(dur).await;
             assert_eq!(expected, game_time());
 
             let mut has_run = has_run_clone.lock().unwrap();
