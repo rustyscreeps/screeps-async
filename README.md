@@ -6,8 +6,8 @@ Tick-aware Async Runtime for Screeps
 
 [crates-badge]: https://img.shields.io/crates/v/screeps-async.svg
 [crates-url]: https://crates.io/crates/screeps-async
-[actions-badge]: https://github.com/scottbot95/screeps-async/actions/workflows/ci.yml/badge.svg
-[actions-url]: https://github.com/scottbot95/screeps-async/actions/workflows/ci.yml
+[actions-badge]: https://github.com/rustyscreeps/screeps-async/actions/workflows/ci.yml/badge.svg
+[actions-url]: https://github.com/rustyscreeps/screeps-async/actions/workflows/ci.yml
 
 ### Getting Started
 Add `screeps-async` to your `Cargo.toml`
@@ -15,6 +15,9 @@ Add `screeps-async` to your `Cargo.toml`
 [dependencies]
 screeps-async = "0.1.0"
 ```
+
+**IMPORTANT**: This project is very much in an early stage and significant, breaking changes may
+be made between alpha versions.
 
 Add `#[screeps_async::main]` to your main loop function and start spawning async code!
 ```rust
