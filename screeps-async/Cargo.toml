@@ -3,13 +3,13 @@ name = "screeps-async"
 description = "Tick-aware Async runtime for Screeps"
 repository = "https://github.com/rustyscreeps/screeps-async"
 homepage = "https://github.com/rustyscreeps/screeps-async"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 license = "MIT"
 readme = "../README.md"
 
 [dependencies]
-screeps-async-macros = { version = "0.1.0", path = "../screeps-async-macros" }
+screeps-async-macros = { version = "0.1.1", path = "../screeps-async-macros" }
 
 async-task = "4.7"
 flume = { version = "0.11", default-features = false }
