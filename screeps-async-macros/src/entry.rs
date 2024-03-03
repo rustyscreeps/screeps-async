@@ -13,24 +13,10 @@ pub fn main(_args: TokenStream, item: TokenStream) -> TokenStream {
         Err(e) => return token_stream_with_error(item, e),
     };
 
-    if input.sig.asyncness.is_some() {
-        async_main(input)
+    let body = if input.sig.asyncness.is_some() {
+        async_body(&input)
     } else {
-        sync_main(input)
-    }
-}
-
-fn async_main(_input: ItemFn) -> TokenStream {
-    todo!("Async main not supported yet")
-}
-
-fn sync_main(input: ItemFn) -> TokenStream {
-    let stmts = &input.block.stmts;
-
-    let body = quote! {
-        #(#stmts)*
-
-        ::screeps_async::run();
+        sync_body(&input)
     };
 
     let ident = input.sig.ident;
@@ -39,9 +25,39 @@ fn sync_main(input: ItemFn) -> TokenStream {
     let args = input.sig.inputs;
 
     quote! {
+        static __SCREEPS_ASYNC_INIT: std::sync::Once = std::sync::Once::new();
+
         #(#attrs)*
         #vis fn #ident(#args) {
+             __SCREEPS_ASYNC_INIT.call_once(|| {
+                screeps_async::initialize();
+            });
+
             #body
         }
+    }
+}
+
+fn async_body(input: &ItemFn) -> TokenStream {
+    let stmts = &input.block.stmts;
+
+    quote! {
+        let res = ::screeps_async::block_on(async move {
+            #(#stmts)*
+        });
+
+        ::screeps_async::run();
+
+        res
+    }
+}
+
+fn sync_body(input: &ItemFn) -> TokenStream {
+    let stmts = &input.block.stmts;
+
+    quote! {
+        #(#stmts)*
+
+        ::screeps_async::run();
     }
 }
