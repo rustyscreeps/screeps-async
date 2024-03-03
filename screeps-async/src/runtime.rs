@@ -6,7 +6,6 @@ use crate::utils::{game_time, time_used};
 use crate::CURRENT;
 use async_task::Runnable;
 use std::cell::RefCell;
-use std::collections::btree_map::Entry;
 use std::collections::BTreeMap;
 use std::future::Future;
 use std::rc::Rc;
@@ -131,6 +130,30 @@ impl ScreepsRuntime {
         JobHandle::new(fut_res)
     }
 
+    /// The main entrypoint for the async runtime. Runs a future to completion.
+    ///
+    /// # Panics
+    ///
+    /// Panics if another future is already being blocked on. You should `.await` the second future
+    /// instead.
+    pub fn block_on<F>(&self, future: F) -> Result<F::Output, RuntimeError>
+    where
+        F: Future + 'static,
+    {
+        let _guard = IS_BLOCKING
+            .try_lock()
+            .expect("Cannot block_on multiple futures at once. Please .await on the inner future");
+        let handle = self.spawn(future);
+
+        while !handle.is_complete() {
+            if !self.try_poll_scheduled()? {
+                unreachable!("Task polling stalled while blocking on a future");
+            }
+        }
+
+        Ok(handle.fut_res.take().unwrap())
+    }
+
     /// Run the executor for one game tick
     ///
     /// This should generally be the last thing you call in your loop as by default the runtime
@@ -138,41 +161,54 @@ impl ScreepsRuntime {
     /// Thus, with enough scheduled work, this function will run for AT LEAST 90% of the tick time
     /// (90% + however long the last Future takes to poll)
     pub fn run(&self) -> Result<(), RuntimeError> {
-        {
-            let game_time = game_time();
-            let mut timers = self.timers.try_lock().unwrap();
-            // Find timers with triggers <= game_time
-            let timers_to_fire = timers
-                .keys()
-                .cloned()
-                .take_while(|&t| t <= game_time)
-                .collect::<Vec<_>>();
+        // Only need to call this once per tick since delay_ticks(0) will execute synchronously
+        self.wake_timers();
 
-            // Populate the execution channel with the timers that have triggered
-            for timer in timers_to_fire.into_iter() {
-                if let Entry::Occupied(entry) = timers.entry(timer) {
-                    // remove the timer from the map and call the wakers
-                    for waker in entry.remove().into_iter().flatten() {
-                        waker.wake();
-                    }
-                }
-            }
+        // Poll tasks until there are no more, or we get an error
+        while self.try_poll_scheduled()? {}
+
+        Ok(())
+    }
+
+    /// Attempts to poll the next scheduled task, ensuring that there is time left in the tick
+    ///
+    /// Returns [Ok(true)] if a task was successfully polled
+    /// Returns [Ok(false)] if there are no tasks ready to poll
+    /// Returns [Err] if we have run out of allocated time this tick
+    pub(crate) fn try_poll_scheduled(&self) -> Result<bool, RuntimeError> {
+        if time_used() > self.config.tick_time_allocation {
+            return Err(RuntimeError::OutOfTime);
         }
 
-        // Poll for tasks as long as we have time left this tick
-        while time_used() <= self.config.tick_time_allocation {
-            if let Ok(runnable) = self.scheduled.try_recv() {
-                runnable.run();
-            } else {
-                // No more tasks scheduled this tick, quit polling for more
-                return Ok(());
-            }
+        if let Ok(runnable) = self.scheduled.try_recv() {
+            runnable.run();
+            Ok(true)
+        } else {
+            Ok(false)
         }
+    }
 
-        // we ran out of time :(
-        Err(RuntimeError::OutOfTime)
+    fn wake_timers(&self) {
+        let game_time = game_time();
+        let mut timers = self.timers.try_lock().unwrap();
+
+        let to_fire = {
+            // Grab timers that are still in the future. `timers` is now all timers that need firing
+            let mut pending = timers.split_off(&(game_time + 1));
+            // Switcheroo pending/timers so that `timers` is all timers that are scheduled in the future
+            std::mem::swap(&mut pending, &mut timers);
+            pending
+        };
+
+        to_fire
+            .into_values()
+            .flatten()
+            .flatten()
+            .for_each(Waker::wake);
     }
 }
+
+static IS_BLOCKING: Mutex<()> = Mutex::new(());
 
 type TimerMap = BTreeMap<u32, Vec<Option<Waker>>>;
 
@@ -185,10 +221,19 @@ mod tests {
     use std::cell::OnceCell;
 
     #[test]
+    fn test_block_on() {
+        init_test();
+
+        let res = crate::block_on(async move { spawn(async move { 1 + 2 }).await }).unwrap();
+
+        assert_eq!(3, res);
+    }
+
+    #[test]
     fn test_spawn() {
         init_test();
 
-        let _ = spawn(async move {});
+        drop(spawn(async move {}));
 
         with_runtime(|runtime| {
             runtime

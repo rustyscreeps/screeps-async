@@ -29,7 +29,7 @@
 //!         println!("Hello!");
 //!     });
 //!
-//!     screeps_async::run();
+//!     screeps_async::run().unwrap();
 //! }
 //! ```
 
@@ -80,6 +80,16 @@ pub fn initialize() {
 /// This function panics if the current runtime is not set
 pub fn run() -> Result<(), RuntimeError> {
     with_runtime(|runtime| runtime.run())
+}
+
+/// The main entrypoint for the async runtime. Runs a future to completion.
+///
+/// See [ScreepsRuntime::block_on] for details
+pub fn block_on<F>(future: F) -> Result<F::Output, RuntimeError>
+where
+    F: Future + 'static,
+{
+    with_runtime(|runtime| runtime.block_on(future))
 }
 
 /// Spawn a new async task

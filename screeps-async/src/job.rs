@@ -12,7 +12,7 @@ use std::task::{Context, Poll};
 ///
 /// This type implements [Future] to allow awaiting on the result of the spawned task
 pub struct JobHandle<T> {
-    fut_res: Rc<RefCell<Option<T>>>,
+    pub(crate) fut_res: Rc<RefCell<Option<T>>>,
     complete: bool,
 }
 
