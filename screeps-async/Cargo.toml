@@ -8,7 +8,7 @@ edition = "2021"
 license = "MIT"
 
 [dependencies]
-screeps-async-macros = { path = "../screeps-async-macros" }
+screeps-async-macros = { version = "0.1.0", path = "../screeps-async-macros" }
 
 async-task = "4.7"
 flume = { version = "0.11", default-features = false }
