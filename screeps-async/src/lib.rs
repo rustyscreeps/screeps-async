@@ -9,7 +9,7 @@
 //! screeps-async = "0.1.0"
 //! ```
 //!
-//! # The [#[screeps_async::main]][screeps_async::main] macro
+//! # The [`#[screeps_async::main]`](screeps_async::main) macro
 //! ```
 //! #[screeps_async::main]
 //! pub fn game_loop() {
