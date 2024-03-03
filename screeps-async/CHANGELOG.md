@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1](https://github.com/rustyscreeps/screeps-async/compare/screeps-async-v0.1.0...screeps-async-v0.1.1) - 2024-03-03
+
+### Fixed
+- Typo in module docs
+- Add missing README to crate artifacts
+
 ## [0.1.0](https://github.com/rustyscreeps/screeps-async/releases/tag/screeps-async-v0.1.0) - 2024-03-03
 
 Initial Release!
