@@ -29,7 +29,7 @@
 //!         println!("Hello!");
 //!     });
 //!
-//!     screeps_async::run().unwrap();
+//!     screeps_async::run();
 //! }
 //! ```
 
