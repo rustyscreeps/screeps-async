@@ -56,8 +56,12 @@ fn sync_body(input: &ItemFn) -> TokenStream {
     let stmts = &input.block.stmts;
 
     quote! {
-        #(#stmts)*
+        let res = {
+            #(#stmts)*
+        };
 
         ::screeps_async::run();
+
+        res
     }
 }
