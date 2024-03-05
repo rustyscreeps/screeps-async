@@ -135,6 +135,8 @@ impl ScreepsRuntime {
 
     /// The main entrypoint for the async runtime. Runs a future to completion.
     ///
+    /// Returns [RuntimeError::DeadlockDetected] if blocking [Future] doesn't complete this tick
+    ///
     /// # Panics
     ///
     /// Panics if another future is already being blocked on. You should `.await` the second future
@@ -151,7 +153,7 @@ impl ScreepsRuntime {
 
         while !handle.is_complete() {
             if !self.try_poll_scheduled()? {
-                unreachable!("Task polling stalled while blocking on a future");
+                return Err(RuntimeError::DeadlockDetected);
             }
         }
 
@@ -259,7 +261,8 @@ mod tests {
             let has_run = has_run.clone();
             spawn(async move {
                 has_run.set(()).unwrap();
-            });
+            })
+            .detach();
         }
 
         // task hasn't run yet
@@ -284,7 +287,8 @@ mod tests {
                 assert_eq!(3, result);
 
                 has_run.set(()).unwrap();
-            });
+            })
+            .detach();
         }
 
         // task hasn't run yet
@@ -305,7 +309,8 @@ mod tests {
             let has_run = has_run.clone();
             spawn(async move {
                 has_run.set(()).unwrap();
-            });
+            })
+            .detach();
         }
 
         TIME_USED.with_borrow_mut(|t| *t = 0.95);

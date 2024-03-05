@@ -130,7 +130,8 @@ mod tests {
                 assert_eq!(expected, game_time());
 
                 has_run.set(()).unwrap();
-            });
+            })
+            .detach();
         }
 
         // task hasn't run yet
@@ -162,13 +163,15 @@ mod tests {
                     // should run after second spawn if yield_now works correctly
                     steps.borrow_mut().push(3);
                 }
-            });
+            })
+            .detach();
         }
         {
             let steps = steps.clone();
             spawn(async move {
                 steps.borrow_mut().push(2);
-            });
+            })
+            .detach();
         }
 
         crate::run().unwrap();
