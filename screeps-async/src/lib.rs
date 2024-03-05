@@ -6,7 +6,7 @@
 //! Add `screeps-async` to your `Cargo.toml`
 //! ```toml
 //! [dependencies]
-//! screeps-async = "0.1.0"
+//! screeps-async = "0.2.0"
 //! ```
 //!
 //! # The [`#[screeps_async::main]`](screeps_async::main) macro

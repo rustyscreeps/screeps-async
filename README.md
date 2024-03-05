@@ -13,7 +13,7 @@ Tick-aware Async Runtime for Screeps
 Add `screeps-async` to your `Cargo.toml`
 ```toml
 [dependencies]
-screeps-async = "0.1.0"
+screeps-async = "0.2.0"
 ```
 
 **IMPORTANT**: This project is very much in an early stage and significant, breaking changes may

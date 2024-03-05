@@ -6,6 +6,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0](https://github.com/rustyscreeps/screeps-async/compare/screeps-async-v0.1.1...screeps-async-v0.2.0) - 2024-03-05
+
+### Added
+- *(spawn)* `JobHandle` now supports cancellation.
+
+### Fixed
+- Improve robustness of tests
+
+### Other
+- Fix example expansion of `#[main]` macro
+
 ## [0.1.1](https://github.com/rustyscreeps/screeps-async/compare/screeps-async-v0.1.0...screeps-async-v0.1.1) - 2024-03-03
 
 ### Fixed
