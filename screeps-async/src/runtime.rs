@@ -83,6 +83,9 @@ pub struct ScreepsRuntime {
 
     /// Config for the runtime
     config: Config,
+
+    /// Mutex used to ensure you don't block_on multiple futures simultaneously
+    is_blocking: Mutex<()>,
 }
 
 impl ScreepsRuntime {
@@ -100,6 +103,7 @@ impl ScreepsRuntime {
             sender,
             timers,
             config,
+            is_blocking: Mutex::new(()),
         }
     }
 
@@ -124,10 +128,9 @@ impl ScreepsRuntime {
             sender.send(runnable).unwrap();
         });
 
-        task.detach(); // Ensure this task can run in the background
         runnable.schedule();
 
-        JobHandle::new(fut_res)
+        JobHandle::new(fut_res, task)
     }
 
     /// The main entrypoint for the async runtime. Runs a future to completion.
@@ -140,7 +143,8 @@ impl ScreepsRuntime {
     where
         F: Future + 'static,
     {
-        let _guard = IS_BLOCKING
+        let _guard = self
+            .is_blocking
             .try_lock()
             .expect("Cannot block_on multiple futures at once. Please .await on the inner future");
         let handle = self.spawn(future);
@@ -208,8 +212,6 @@ impl ScreepsRuntime {
     }
 }
 
-static IS_BLOCKING: Mutex<()> = Mutex::new(());
-
 type TimerMap = BTreeMap<u32, Vec<Option<Waker>>>;
 
 #[cfg(test)]
@@ -217,6 +219,7 @@ mod tests {
     use super::*;
     use crate::error::RuntimeError::OutOfTime;
     use crate::tests::*;
+    use crate::time::yield_now;
     use crate::{spawn, with_runtime};
     use std::cell::OnceCell;
 
@@ -224,7 +227,11 @@ mod tests {
     fn test_block_on() {
         init_test();
 
-        let res = crate::block_on(async move { spawn(async move { 1 + 2 }).await }).unwrap();
+        let res = crate::block_on(async move {
+            yield_now().await;
+            1 + 2
+        })
+        .unwrap();
 
         assert_eq!(3, res);
     }
@@ -268,13 +275,25 @@ mod tests {
     fn test_nested_spawn() {
         init_test();
 
-        spawn(async move {
-            let result = spawn(async move { 1 + 2 }).await;
+        let has_run = Rc::new(OnceCell::new());
+        {
+            let has_run = has_run.clone();
+            spawn(async move {
+                let result = spawn(async move { 1 + 2 }).await;
 
-            assert_eq!(3, result);
-        });
+                assert_eq!(3, result);
+
+                has_run.set(()).unwrap();
+            });
+        }
+
+        // task hasn't run yet
+        assert!(has_run.get().is_none());
 
         crate::run().unwrap();
+
+        // Future has been run
+        assert!(has_run.get().is_some());
     }
 
     #[test]
