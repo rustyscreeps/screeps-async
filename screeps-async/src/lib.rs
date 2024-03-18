@@ -40,6 +40,7 @@ use std::cell::RefCell;
 pub mod error;
 pub mod job;
 pub mod runtime;
+pub mod sync;
 pub mod time;
 
 use crate::error::RuntimeError;
@@ -142,6 +143,7 @@ mod utils {
 
 #[cfg(test)]
 mod tests {
+    use crate::error::RuntimeError;
     use crate::runtime::Builder;
     use std::cell::RefCell;
 
@@ -163,5 +165,12 @@ mod tests {
         TIME_USED.with_borrow_mut(|t| *t = 0.0);
 
         Builder::new().apply()
+    }
+
+    /// Calls [crate::run] and increments [GAME_TIME] if [crate::run] succeeded
+    pub(crate) fn tick() -> Result<(), RuntimeError> {
+        crate::run()?;
+        GAME_TIME.with_borrow_mut(|t| *t += 1);
+        Ok(())
     }
 }

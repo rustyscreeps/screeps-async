@@ -139,8 +139,7 @@ mod tests {
 
         // Should complete within `dur` ticks (since we have infinite cpu time in this test)
         while game_time() <= dur {
-            crate::run().unwrap();
-            crate::tests::GAME_TIME.with_borrow_mut(|t| *t += 1);
+            crate::tests::tick().unwrap()
         }
 
         // Future has been run
