@@ -6,6 +6,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0](https://github.com/rustyscreeps/screeps-async/compare/screeps-async-v0.2.0...screeps-async-v0.3.0) - 2024-03-23
+
+### Added
+- Add async `RwLock`
+- Add `Mutex` ([#4](https://github.com/rustyscreeps/screeps-async/pull/4))
+
+### Fixed
+- Refactor test time abstractions to make new version of clippy happy
+- Don't try to queue tasks after Runtime is dropped causing panics
+
+### Other
+- Add docs.rs badge
+
 ## [0.2.0](https://github.com/rustyscreeps/screeps-async/compare/screeps-async-v0.1.1...screeps-async-v0.2.0) - 2024-03-05
 
 ### Added
