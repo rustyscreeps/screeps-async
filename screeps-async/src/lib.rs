@@ -9,7 +9,7 @@
 //! screeps-async = "0.2.0"
 //! ```
 //!
-//! # The [`#[screeps_async::main]`](screeps_async::main) macro
+//! # The [`#[screeps_async::main]`](main) macro
 //! ```
 //! #[screeps_async::main]
 //! pub fn game_loop() {
@@ -29,13 +29,13 @@
 //!         println!("Hello!");
 //!     });
 //!
-//!     screeps_async::run();
+//!     screeps_async::run().unwrap();
 //! }
 //! ```
 
 pub mod macros;
-
 pub use macros::*;
+
 use std::cell::RefCell;
 pub mod error;
 pub mod job;

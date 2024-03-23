@@ -2,3 +2,6 @@
 
 mod mutex;
 pub use mutex::*;
+
+mod rwlock;
+pub use rwlock::*;

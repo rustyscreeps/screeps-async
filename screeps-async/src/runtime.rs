@@ -125,7 +125,10 @@ impl ScreepsRuntime {
 
         let sender = self.sender.clone();
         let (runnable, task) = async_task::spawn_local(future, move |runnable| {
-            sender.send(runnable).unwrap();
+            // Don't try to send if disconnected, this only happens when runtime is being dropped
+            if !sender.is_disconnected() {
+                sender.send(runnable).unwrap();
+            }
         });
 
         runnable.schedule();

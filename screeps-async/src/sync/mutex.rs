@@ -22,7 +22,7 @@ use std::task::{Context, Poll, Waker};
 pub struct Mutex<T> {
     /// Whether the mutex is currently locked.
     ///
-    /// Use [Cell<bool>] instead of [AtomicBool] since we don't really need atomics
+    /// Use [`Cell<bool>`] instead of [AtomicBool] since we don't really need atomics
     /// and [Cell] is more general
     state: Cell<bool>,
     /// Wrapped value
