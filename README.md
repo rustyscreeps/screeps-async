@@ -3,11 +3,14 @@ Tick-aware Async Runtime for Screeps
 
 [![Crates.io][crates-badge]][crates-url]
 [![CI][actions-badge]][actions-url]
+[![docs.rs version badge][docsrs-badge]][docs]
 
 [crates-badge]: https://img.shields.io/crates/v/screeps-async.svg
 [crates-url]: https://crates.io/crates/screeps-async
 [actions-badge]: https://github.com/rustyscreeps/screeps-async/actions/workflows/ci.yml/badge.svg
 [actions-url]: https://github.com/rustyscreeps/screeps-async/actions/workflows/ci.yml
+[docsrs-badge]: https://docs.rs/screeps-async/badge.svg
+[docs]: https://docs.rs/screeps-async/
 
 ### Getting Started
 Add `screeps-async` to your `Cargo.toml`
