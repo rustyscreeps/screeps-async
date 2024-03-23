@@ -148,8 +148,8 @@ mod tests {
     use std::cell::RefCell;
 
     thread_local! {
-        pub(crate) static GAME_TIME: RefCell<u32> = RefCell::new(0);
-        pub(crate) static TIME_USED: RefCell<f64> = RefCell::new(0.0);
+        pub(crate) static GAME_TIME: RefCell<u32> = const { RefCell::new(0) };
+        pub(crate) static TIME_USED: RefCell<f64> = const { RefCell::new(0.0) };
     }
 
     pub(super) fn game_time() -> u32 {
