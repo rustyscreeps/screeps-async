@@ -9,7 +9,7 @@ license = "MIT"
 readme = "../README.md"
 
 [dependencies]
-screeps-async-macros = { version = "0.1.3", path = "../screeps-async-macros" }
+screeps-async-macros = { version = "0.1.4", path = "../screeps-async-macros" }
 
 async-task = "4.7"
 flume = { version = "0.11", default-features = false }

@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.4](https://github.com/rustyscreeps/screeps-async/compare/screeps-async-macros-v0.1.3...screeps-async-macros-v0.1.4) - 2024-09-21
+
+### Other
+
+- release ([#8](https://github.com/rustyscreeps/screeps-async/pull/8))
+
 ## [0.1.3](https://github.com/rustyscreeps/screeps-async/compare/screeps-async-macros-v0.1.2...screeps-async-macros-v0.1.3) - 2024-03-23
 
 ### Other
