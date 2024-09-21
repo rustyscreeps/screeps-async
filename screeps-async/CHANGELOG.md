@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1](https://github.com/rustyscreeps/screeps-async/compare/screeps-async-v0.3.0...screeps-async-v0.3.1) - 2024-09-21
+
+### Other
+
+- Update screeps-game-api to 0.22.0 ([#7](https://github.com/rustyscreeps/screeps-async/pull/7))
+
 ## [0.3.0](https://github.com/rustyscreeps/screeps-async/compare/screeps-async-v0.2.0...screeps-async-v0.3.0) - 2024-03-23
 
 ### Added
